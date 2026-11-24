@@ -20,7 +20,7 @@ function auInit() {
     const nb = c.createBuffer(1, c.sampleRate, c.sampleRate); const nd = nb.getChannelData(0);
     for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; AU.noiseBuf = nb;
     setInterval(schedule, 25);
-    if (AU.pending) { const p = AU.pending; AU.pending = null; playSong(p); }
+    if (AU.pending) { const p = AU.pending; AU.pending = null; playSong(p); } preloadSamples();
   } catch (e) { console.warn(e); }
 }
 function tone(t, f, d, o = {}) {
@@ -72,7 +72,7 @@ const SONGS = {
     mel: 'A5 - - G5 F5 - C5 -|E5 - - D5 C5 - - .|D5 - E5 - F5 - A5 -|G5 - - - - - - .|A5 - - C6 Bb5 - A5 -|G5 - - F5 E5 - C5 -|D5 - F5 - Bb5 - A5 -|G5 - - - F5 - - .' },
 };
 for (const k in SONGS) { const s = SONGS[k]; s.ch = s.chords.split(' ').map(chordNotes); s.m = s.mel.split('|').map(b => b.trim().split(/\s+/)); }
-function playSong(name) {
+function synthSong(name) {
   if (!AU.ctx) { AU.pending = name; AU.songName = name; return; }
   if (AU.songName === name && AU.song) return;
   AU.songName = name; AU.song = SONGS[name] || null; AU.step = 0; AU.next = AU.ctx.currentTime + 0.08;
@@ -102,7 +102,7 @@ function playStep(s, step, t, spb) {
     }
   }
 }
-function sfx(name) {
+function synthSfx(name) {
   if (!AU.ctx || !AU.on) return; const t = AU.ctx.currentTime + 0.01, D = AU.sfx;
   switch (name) {
     case 'blip': tone(t, 880, 0.05, { vol: 0.08, dest: D }); break;
@@ -112,7 +112,7 @@ function sfx(name) {
     case 'step': noise(t, 0.04, { ft: 'lowpass', f: 900, vol: 0.12, dest: D }); break;
     case 'slash': noise(t, 0.18, { ft: 'bandpass', f: 3000, fEnd: 600, q: 2, vol: 0.4, dest: D }); break;
     case 'hit': tone(t, 180, 0.15, { type: 'square', glide: 60, vol: 0.2, lp: 900, dest: D }); noise(t, 0.12, { ft: 'lowpass', f: 2000, vol: 0.35, dest: D }); break;
-    case 'crit': sfx('hit'); tone(t, 1320, 0.25, { type: 'square', vol: 0.08, dest: D }); tone(t + 0.07, 1760, 0.3, { type: 'square', vol: 0.07, dest: D }); break;
+    case 'crit': synthSfx('hit'); tone(t, 1320, 0.25, { type: 'square', vol: 0.08, dest: D }); tone(t + 0.07, 1760, 0.3, { type: 'square', vol: 0.07, dest: D }); break;
     case 'miss': noise(t, 0.25, { ft: 'bandpass', f: 1200, fEnd: 4000, q: 3, vol: 0.25, dest: D }); break;
     case 'bow': tone(t, 300, 0.12, { type: 'triangle', glide: 900, vol: 0.2, dest: D }); noise(t, 0.1, { f: 4000, vol: 0.1, dest: D }); break;
     case 'magic': for (let i = 0; i < 6; i++) tone(t + i * 0.04, hz(72 + i * 4), 0.2, { type: 'sine', vol: 0.08, dest: D, send: 1 }); break;
@@ -131,4 +131,111 @@ function sfx(name) {
     case 'coin': tone(t, 988, 0.06, { vol: 0.08, dest: D }); tone(t + 0.06, 1319, 0.2, { vol: 0.08, dest: D }); break;
   }
 }
-function toggleSound() { AU.on = !AU.on; if (AU.ctx) AU.music.gain.setTargetAtTime(AU.on ? 0.32 : 0, AU.ctx.currentTime, 0.1); return AU.on; }
+function synthToggle() { AU.on = !AU.on; if (AU.ctx) AU.music.gain.setTargetAtTime(AU.on ? 0.32 : 0, AU.ctx.currentTime, 0.1); return AU.on; }
+
+// ================= ÁUDIO GRAVADO: música orquestral, efeitos e ambiente (FLARE, CC-BY-SA 3.0) =================
+// Se algum arquivo não carregar, o jogo volta para o som sintetizado acima.
+const AUD = { base: 'audio/', buf: {}, req: {}, ok: true, cur: null, curName: null, vol: 0.55, amb: null, ambName: null };
+const SONG_FILE = { title: 'title', town: 'town', forest: 'forest', crypt: 'dungeon', battle: 'battle', boss: 'boss', future: 'unrest', victory: 'safe_room', ending: 'magical' };
+function songFile(name) {
+  const th = typeof S !== 'undefined' && S && S.map ? S.map.theme : '';
+  if (name === 'crypt' && ['underdark', 'abyss', 'jungle', 'temple', 'goldcity', 'devour'].includes(th)) return 'cave';
+  if (name === 'town' && ['sky', 'coast', 'snow', 'market', 'carnival', 'arena'].includes(th)) return 'overworld';
+  return SONG_FILE[name];
+}
+function sampleLoad(k) {
+  if (AUD.buf[k] || AUD.req[k] || !AU.ctx) return AUD.req[k];
+  AUD.req[k] = fetch(AUD.base + 'sfx/' + k + '.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+    .then(a => new Promise((res, rej) => AU.ctx.decodeAudioData(a, res, rej))).then(b => { AUD.buf[k] = b; return b; }).catch(() => { AUD.buf[k] = null; });
+  return AUD.req[k];
+}
+const SFX_ALL = ['ui', 'page', 'cloth', 'coins', 'potion', 'metal', 'gem', 'book', 'swing', 'swing_2', 'swing_3', 'p_heal', 'p_fireball', 'p_burn', 'p_shock', 'p_shoot', 'p_shield', 'p_block', 'p_spikes', 'p_freeze', 'p_teleport', 'p_quake', 'p_warcry', 'p_thunder', 'p_potion', 'levelup', 'male_hit', 'female_hit', 'male_die', 'female_die', 'door', 'step1', 'step2', 'step3', 'step4',
+  ...['goblin', 'skeleton', 'zombie', 'minotaur', 'wyvern', 'antlion', 'grave'].flatMap(e => [e + '_hit', e + '_die'])];
+function preloadSamples() { SFX_ALL.forEach(sampleLoad); }
+function playSample(k, vol = 1, rate = 1, delay = 0) {
+  const b = AUD.buf[k]; if (!b) { if (AUD.buf[k] === undefined) sampleLoad(k); return false; }
+  const c = AU.ctx, src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = rate * (0.96 + Math.random() * 0.08);
+  const g = c.createGain(); g.gain.value = vol; src.connect(g); g.connect(AU.sfx); src.start(c.currentTime + 0.005 + delay); return true;
+}
+const pickOne = a => a[Math.floor(Math.random() * a.length)];
+const VOICE_OF = { goblin: 'goblin', imp: 'goblin', rei_goblin: 'goblin', jester: 'goblin', lizard: 'goblin', lizshaman: 'goblin', xama: 'goblin', orc: 'goblin', orcm: 'goblin',
+  esq: 'skeleton', arq: 'skeleton', vorgath: 'skeleton', arauto: 'skeleton', sentinela: 'skeleton', goldguard: 'skeleton',
+  zumbi: 'zombie', zgig: 'zombie', vspawn: 'zombie', lodo: 'zombie', ghost: 'grave',
+  chort: 'minotaur', wogol: 'minotaur', frostgiant: 'minotaur', golem: 'minotaur', forjador: 'minotaur', devil: 'minotaur', devourer: 'minotaur', fireboss: 'minotaur', fireelem: 'antlion',
+  ignaroth: 'wyvern', serpent: 'wyvern',
+  drow: 'female', drowp: 'female', halvara: 'female' };
+function voiceOf(u) {
+  if (!u) return null;
+  if (u.member) return /^f/.test(u.member.gender || '') ? 'female' : 'male';
+  return VOICE_OF[u.key] || 'male';
+}
+function sfx(name, u) {
+  if (!AU.ctx || !AU.on) return;
+  const big = u && u.scale >= 2 ? 0.78 : 1; const v = voiceOf(u);
+  let ok = false;
+  switch (name) {
+    case 'blip': ok = playSample('ui', 0.45, 1.15); break;
+    case 'select': ok = playSample('gem', 0.55); break;
+    case 'cancel': ok = playSample('cloth', 0.6); break;
+    case 'step': ok = playSample(pickOne(['step1', 'step2', 'step3', 'step4']), 0.45); break;
+    case 'slash': ok = playSample(pickOne(['swing', 'swing_2', 'swing_3']), 0.9); break;
+    case 'hit': ok = playSample('metal', 0.35, 0.8); if (v) playSample(v + '_hit', 0.85, big); break;
+    case 'crit': ok = playSample('p_spikes', 0.7); if (v) playSample(v + '_hit', 1, big * 0.92, 0.05); break;
+    case 'miss': ok = playSample('p_block', 0.55); break;
+    case 'bow': ok = playSample('p_shoot', 0.8); break;
+    case 'magic': ok = playSample('p_shock', 0.6); break;
+    case 'fire': ok = playSample('p_fireball', 0.8); break;
+    case 'dark': ok = playSample('p_freeze', 0.75, 0.7); break;
+    case 'holy': ok = playSample('p_shield', 0.7, 1.1); playSample('p_heal', 0.5, 1.2, 0.08); break;
+    case 'heal': ok = playSample('p_heal', 0.75); break;
+    case 'level': ok = playSample('levelup', 0.85); break;
+    case 'death': ok = v ? playSample(v + '_die', 0.9, big) : false; break;
+    case 'portal': ok = playSample('p_teleport', 0.8); break;
+    case 'boom': ok = playSample('p_quake', 0.85); break;
+    case 'coin': ok = playSample('coins', 0.7); break;
+    case 'potion': ok = playSample('p_potion', 0.7); break;
+    case 'text': return;
+  }
+  if (!ok) synthSfx(name);
+}
+// ---------- música: dois tocadores com transição suave ----------
+function musicFade(el, to, ms, done) {
+  const from = el.volume, t0 = performance.now();
+  const step = () => { const k = Math.min(1, (performance.now() - t0) / ms); el.volume = Math.max(0, Math.min(1, from + (to - from) * k)); if (k < 1) requestAnimationFrame(step); else if (done) done(); };
+  step();
+}
+function playSong(name) {
+  if (!AU.ctx) { AU.pending = name; AU.songName = name; return; }
+  const f = AUD.ok ? songFile(name) : null;
+  if (!f) return synthSong(name);
+  if (AU.songName === name && AUD.curName === f && AUD.cur) return;
+  AU.songName = name; AU.song = null;
+  if (AUD.curName === f && AUD.cur) return;
+  const old = AUD.cur; if (old) musicFade(old, 0, 900, () => { old.pause(); old.src = ''; });
+  const el = new Audio(AUD.base + 'music/' + f + '.mp3'); el.loop = name !== 'victory'; el.volume = 0; el.preload = 'auto';
+  AUD.cur = el; AUD.curName = f;
+  el.onerror = () => { if (AUD.cur === el) { AUD.ok = false; AUD.cur = null; AUD.curName = null; synthSong(name); } };
+  if (name === 'victory') { el.loop = true; }
+  const go = () => { if (AUD.cur !== el) return; el.play().then(() => musicFade(el, AU.on ? AUD.vol : 0, 1400)).catch(() => {}); };
+  name === 'victory' ? setTimeout(go, 1800) : go();
+  if (name === 'victory') sfx('level');
+}
+function stopSong() { AU.song = null; AU.songName = null; const old = AUD.cur; AUD.cur = null; AUD.curName = null; if (old) musicFade(old, 0, 700, () => { old.pause(); old.src = ''; }); }
+// ---------- sons de ambiente por cenário ----------
+const AMB_OF = { village: 'bird_twitter', forest: 'bird_twitter', fogvillage: 'raven', crypt: 'cave_droplets', castle: 'open_fire', gothic: 'rain', manor: 'wind', jungle: 'bird_twitter',
+  goldcity: 'wind', temple: 'cave_droplets', sky: 'wind', elemental: 'open_fire', underdark: 'cave_wind', abyss: 'cave_wind', future: 'wind', clockcity: 'anvil', timewar: 'wind',
+  tower: 'wind', devour: 'cave_wind', carnival: 'bird_twitter', market: 'bird_twitter', coast: 'river', snow: 'wind', dungeon: 'cave_droplets' };
+function setAmbience(theme) {
+  const k = AMB_OF[theme] || null; if (AUD.ambName === k) return; AUD.ambName = k;
+  const old = AUD.amb; AUD.amb = null; if (old) musicFade(old, 0, 1200, () => { old.pause(); old.src = ''; });
+  if (!k || !AU.ctx) return;
+  const el = new Audio(AUD.base + 'amb/' + k + '.mp3'); el.loop = true; el.volume = 0; AUD.amb = el;
+  el.play().then(() => musicFade(el, AU.on ? 0.22 : 0, 1500)).catch(() => {});
+}
+function ambienceTick() { const want = typeof S !== 'undefined' && S && S.map ? S.map.theme : null; if (AU.ctx && want !== AUD.ambTheme) { AUD.ambTheme = want; setAmbience(want); } }
+function toggleSound() {
+  AU.on = !AU.on;
+  if (AU.ctx) AU.music.gain.setTargetAtTime(AU.on ? 0.32 : 0, AU.ctx.currentTime, 0.1);
+  if (AUD.cur) musicFade(AUD.cur, AU.on ? AUD.vol : 0, 300); if (AUD.amb) musicFade(AUD.amb, AU.on ? 0.22 : 0, 300);
+  return AU.on;
+}

@@ -29,7 +29,7 @@ function wrapPresentation() {
   W('floatText', o => (x, y, text, color, big) => { if (isHost()) { const r = nearestUnitRef(x, y); if (r) netFx('float', { r, text, color, big }); } return o(x, y, text, color, big); });
   W('burst', o => (x, y, kind) => { if (isHost()) { const r = nearestUnitRef(x, y); if (r) netFx('burst', { r, kind }); } return o(x, y, kind); });
   W('projectile', o => (a, b, kind) => { netFx('proj', { a: refOf(a), b: refOf(b), kind }); return o(a, b, kind); });
-  W('sfx', o => n => { if (isHost() && !['text', 'blip', 'step', 'select', 'cancel'].includes(n)) netFx('sfx', { n }); return o(n); });
+  W('sfx', o => (n, u) => { if (isHost() && !['text', 'blip', 'step', 'select', 'cancel'].includes(n)) netFx('sfx', { n, u: u && u.id != null ? u.id : undefined }); return o(n, u); });
   W('playSong', o => n => { netFx('song', { n }); return o(n); });
   W('stopSong', o => () => { netFx('song', { n: null }); return o(); });
   W('diceRoll', o => a => { netFx('dice', { a }); return o(a); });
@@ -87,7 +87,7 @@ function guestFx(d) {
     case 'float': { const p = refScreen(d.r); if (p) floatText(p[0], p[1], d.text, d.color, d.big); return; }
     case 'burst': { const p = refScreen(d.r); if (p) burst(p[0], p[1], d.kind); return; }
     case 'proj': { const a = guestRef(d.a), b = guestRef(d.b); if (a && b) projectile(a, b, d.kind); return; }
-    case 'sfx': return sfx(d.n);
+    case 'sfx': return sfx(d.n, d.u != null ? UNIT_BY_ID().get(d.u) : undefined);
     case 'song': return d.n ? playSong(d.n) : stopSong();
     case 'dice': return diceRoll(d.a);
     case 'say': return guestSay(d);

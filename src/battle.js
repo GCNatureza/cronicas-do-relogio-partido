@@ -159,14 +159,14 @@ async function castFx(u, t, kind) {
 // ---------- Resolução ----------
 async function damage(t, amt, crit, color) {
   t.hp -= amt; t.flash = 14; if (t.rec && t.hp > 0) playAnim(t, 'hurt', 3); const [sx, sy] = unitScreen(t); floatText(sx, sy - (t._h || 20), String(amt), crit ? '#ffd23a' : color || '#fff', crit);
-  sfx(crit ? 'crit' : 'hit'); if (crit) { V.shake = 10; V.flash = 4; }
+  sfx(crit ? 'crit' : 'hit', t); if (crit) { V.shake = 10; V.flash = 4; }
   if (t.hp <= 0 && t.race === 'meioorc' && !t.used.implacavel) { t.used.implacavel = 1; t.hp = 1; floatText(sx, sy - 40, 'Implacável!', '#ff9a40', true); return; }
   if (t.hp <= 0) await down(t);
 }
 async function down(t) {
   t.hp = 0; const [sx, sy] = unitScreen(t);
-  if (t.team === 'A') { t.ko = true; floatText(sx, sy - 34, 'Caído!', '#ff8080'); sfx('death'); return; }
-  t.dead = true; sfx('death'); B.xp += t.xp || 0; emit(sx, sy - 10, 30, { c: '#bba', sp: 1, life: 40, s: 2, glow: 0 }); emit(sx, sy - 10, 14, { c: t.boss ? '#ffd040' : '#ff5050', sp: 1.3, life: 30, s: 2 });
+  if (t.team === 'A') { t.ko = true; floatText(sx, sy - 34, 'Caído!', '#ff8080'); sfx('death', t); return; }
+  t.dead = true; sfx('death', t); B.xp += t.xp || 0; emit(sx, sy - 10, 30, { c: '#bba', sp: 1, life: 40, s: 2, glow: 0 }); emit(sx, sy - 10, 14, { c: t.boss ? '#ffd040' : '#ff5050', sp: 1.3, life: 30, s: 2 });
   for (let i = 0; i < 20; i++) { t.alpha = 1 - i / 20; t.hop = i * .6; await nextFrame(); } t.visible = false;
   if (t.boss) { floatText(sx, sy - 30, 'DERROTADO!', '#ffd040', true); }
 }

@@ -253,7 +253,7 @@ function credits() {
   return new Promise(res => {
     playSong('ending');
     const s = screen(`<h2>Crônicas do Relógio Partido</h2><p>Um RPG tático em homenagem a Final Fantasy Tactics e Chrono Trigger, com regras inspiradas em Dungeons &amp; Dragons 5ª edição. Eras e missões inspiradas em ideias clássicas de campanhas de RPG de mesa.</p>
-    <h3>Créditos</h3><p>História, código, mapas, música e efeitos sonoros: criados para este jogo (música e sons sintetizados em tempo real).</p>
+    <h3>Créditos</h3><p>História, código e mapas: criados para este jogo.</p><p>Música orquestral, efeitos sonoros e sons de ambiente: <b>FLARE</b> (flareteam) — música de <b>Brandon Morris</b> e sons da equipe Flare e colaboradores do OpenGameArt — licença CC-BY-SA 3.0.</p>
     <p>Personagens e monstros em 16 bits: <b>Liberated Pixel Cup (LPC)</b> e <b>Universal LPC Spritesheet Character Generator</b> — licenças CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0. Artistas: Benjamin K. Smith (BenCreating), Carlo Enrico Victoria (Nemisys), Daniel Eddeland (daneeklu), Durrani, Eliza Wyatt (ElizaWy), Evert, JaidynReiman, Joe White, Johannes Sjölund (wulax), LordNeo, Luke Mehl, Manuel Riecke (MrBeast), Marcel van de Steeg (MadMarcel), Matthew Krohn (makrohn), Michael Whitlock (bigbeargames), MuffinElZangano, Nila122, Pierre Vigier (pvigier), Sander Frenken (castelonia), Shaun Williams, Stephen Challener (Redshrike), Thane Brimhall (pennomi), TheraHedwig, Tuomo Untinen (reemax), William.Thompsonj, Zi Ye, bluecarrot16, gr3yh47, laetissima, tskaufma. Mais detalhes: github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Generator.</p>
     <p>Itens e cenário: <b>16x16 DungeonTileset II</b>, por <b>0x72 (Robert)</b> — domínio público (CC0).</p>
     <p>Nenhum material original de Square Enix ou Wizards of the Coast foi usado.</p>`, 'panel-sc');
@@ -279,7 +279,7 @@ function setupInput() {
   $('#chatmic').onclick = e => { e.stopPropagation(); micClick(true); };
   addEventListener('resize', resize);
 }
-function loop(t) { try { pollPads(); render(); drawBubbles(); drawPreviews(t); hostTick(); } catch (e) { console.error(e); } requestAnimationFrame(loop); }
+function loop(t) { try { pollPads(); render(); drawBubbles(); drawPreviews(t); hostTick(); ambienceTick(); } catch (e) { console.error(e); } requestAnimationFrame(loop); }
 async function boot() {
   atlasImg.src = ATLAS_SRC; await new Promise(r => { if (atlasImg.complete) r(); else atlasImg.onload = r; });
   $('#app').prepend(cv); resize(); setupInput(); titleScreen(); requestAnimationFrame(loop);
