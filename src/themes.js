@@ -64,10 +64,12 @@ function genGeneric(theme, seed) {
     (T.deco || []).forEach(([d, p]) => all.forEach(c => { if (c.t && TT[c.t].walk && !c.deco && R() < p) c.deco = d; }));
     const lightOf = o => o === 'brazier' && T.fire ? T.fire : OBJ_LIGHT[o];
     if (T.grid) all.forEach(c => { if (!c.out && c.t && TT[c.t].walk && (c.x - M) % 4 === 2 && (c.y - M) % 4 === 2 && Math.abs(c.x - c.y) > 1) { c.obj = T.grid; const L = lightOf(T.grid); if (L) c.light = L; } });
+    if (T.layout) layoutMap(T, g, all, M, P, R);
     const inner = () => all.filter(c => !c.out && c.t && TT[c.t].walk && !TT[c.t].liquid && !c.obj && Math.abs(c.x - c.y) > 1);
     (T.objs || []).forEach(([o, n]) => { for (let i = 0; i < Math.round(n * P * P / 140); i++) { const f = inner(); if (!f.length) break; const c = f[Math.floor(R() * f.length)]; c.obj = o; const L = lightOf(o); if (L) c.light = L; } });
     (T.ring || []).forEach(([o, p]) => all.forEach(c => { if (c.out && c.t && TT[c.t].walk && !TT[c.t].liquid && !c.obj && Math.abs(c.x - c.y) > 1 && R() < p) { c.obj = o; const L = lightOf(o); if (L) c.light = L; } }));
     for (let k = 0; k < 5; k++) all.forEach(c => { [[1, 0], [0, 1]].forEach(([dx, dy]) => { const n = tl(c.x + dx, c.y + dy); if (n && c.t && n.t && !(T.stands && (c.out || n.out)) && Math.abs(n.h - c.h) > 2) n.h = c.h + Math.sign(n.h - c.h) * 2; }); });
+    applyWalls(T, g, all, M, P);
     const base0 = T.base[0];
     const clean = c => { if (c.t && !TT[c.t].walk) c.t = base0; if (c.t && TT[c.t].liquid && c.t !== 'ice') { c.t = base0; } c.obj = null; c.light = null; };
     const play = all.filter(c => c.t && !c.out);

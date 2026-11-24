@@ -202,7 +202,7 @@ function vtile(x, y) {
   if (vc.size > 6000) vc.clear(); vc.set(k, c); return c;
 }
 function unrotP(rx, ry) { const n = S.map.N - 1; switch (V.rot) { case 1: return [ry, n - rx]; case 2: return [n - rx, n - ry]; case 3: return [n - ry, rx]; default: return [rx, ry]; } }
-function drawTile(g, c, sx, sy) {
+function drawTileClassic(g, c, sx, sy) {
   const tt = TT[c.t]; const d = c.h * 8 + 6; const t = V.t;
   // laterais
   g.fillStyle = tt.l; g.beginPath(); g.moveTo(sx - 16, sy); g.lineTo(sx, sy + 8); g.lineTo(sx, sy + 8 + d); g.lineTo(sx - 16, sy + d); g.fill();
@@ -242,7 +242,7 @@ function drawTile(g, c, sx, sy) {
 function drawHighlight(g, sx, sy, col, a) { g.globalAlpha = a; drawDiamond(g, sx, sy, col); g.globalAlpha = Math.min(1, a + .35); g.strokeStyle = col; g.lineWidth = 1; drawDiamond(g, sx, sy); g.stroke(); g.globalAlpha = 1; }
 function drawObj(g, c, sx, sy) {
   const t = V.t, o = c.obj;
-  if (drawObj2(g, c, sx, sy)) return;
+  if (drawObj3(g, c, sx, sy) || drawObj2(g, c, sx, sy)) return;
   if (o === 'tree') {
     g.fillStyle = '#5a3a22'; g.fillRect(sx - 2, sy - 14, 4, 14);
     [[0, -26, 11, '#2f7a3a'], [-4, -22, 8, '#3c9446'], [4, -28, 7, '#4caa52'], [-2, -31, 5, '#7fd06a']].forEach(([x, y, r, col]) => { g.fillStyle = col; g.beginPath(); g.arc(sx + x, sy + y, r, 0, 7); g.fill(); });
@@ -307,7 +307,7 @@ const ATMOS = { village: { dark: .36, tint: 'rgba(255,130,60,.07)', rays: '255,2
 const hex6 = c => /^#[0-9a-f]{3}$/i.test(c) ? '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3] : /^#[0-9a-f]{6}$/i.test(c) ? c : null;
 function lightList() {
   const th = S.map.theme; const L = [];
-  S.map.g.flat().forEach(c => { if (c.light && c.t) { const [sx, sy] = toScreen(c.x, c.y, c.h); if (sx > -60 && sx < V.bw + 60 && sy > -60 && sy < V.bh + 80) L.push([sx, sy - 14, c.obj ? 52 : 34, hex6(c.light)]); } });
+  S.map.g.flat().forEach(c => { if (c.light && c.t) { if (c.wall && !wallSide(c).face) return; const [sx, sy0] = toScreen(c.x, c.y, c.h); const sy = c.wall ? sy0 + Math.max(4, c.h * 8 + 6 - 34) + 22 : sy0; if (sx > -60 && sx < V.bw + 60 && sy > -60 && sy < V.bh + 80) L.push([sx, sy - 14, c.obj ? 52 : 34, hex6(c.light)]); } });
   S.units.forEach(u => { if (u.visible && u.alpha > 0 && !u.ko && u._sx != null) L.push([u._sx, u._sy - 10, th === 'crypt' ? 34 : 26, u.aura ? hex6(u.aura) : null]); });
   let n = 0; for (const p of P) { if (p.glow && p.s > 1.5 && n++ < 60) L.push([p.x, p.y, 10, hex6(p.c)]); }
   return L.filter(l => isFinite(l[0]) && isFinite(l[1]));
@@ -370,7 +370,7 @@ function render() {
   const sh = V.shake > 0 ? (V.shake--, [(Math.random() - .5) * V.shake * .8, (Math.random() - .5) * V.shake * .8]) : [0, 0];
   g.save(); g.translate(Math.round(sh[0]), Math.round(sh[1]));
   const map = S.map, N = map.N; const order = [];
-  const TH = THEMES[map.theme] || {}; const virt = !TH.shape && map.M;
+  const TH = THEMES[map.theme] || {}; const virt = !TH.shape && !TH.walls && map.M;
   { const A = (V.bw / 2 - V.ox) / 16, Bv = (V.bh / 2 - V.oy) / 8; const RX = (A + Bv) / 2, RY = (Bv - A) / 2; const span = Math.ceil(V.bw / 32 + V.bh / 16) + 5;
     for (let rx = Math.floor(RX - span); rx <= RX + span; rx++) for (let ry = Math.floor(RY - span); ry <= RY + span; ry++) {
       const [x, y] = unrotP(rx, ry); const inG = x >= 0 && y >= 0 && x < N && y < N; const c = inG ? map.g[y][x] : virt ? vtile(x, y) : null; if (!c || !c.t) continue; order.push([rx + ry, rx, c]); } }
@@ -382,10 +382,11 @@ function render() {
   const flushUnits = (d) => { const arr = byTile.get(d); if (arr) { arr.sort((a, b) => { const [ax, ay] = rotP(a.px, a.py), [bx, by] = rotP(b.px, b.py); return (ax + ay) - (bx + by); }); arr.forEach(u => drawUnit(g, u)); } };
   for (let i = 0; i < order.length; i++) {
     const [d, , c] = order[i]; if (d !== lastD) { if (lastD >= 0) flushUnits(lastD); lastD = d; }
-    const [sx, sy] = toScreen(c.x, c.y, c.h); if (sx < -60 || sx > V.bw + 60 || sy < -90 || sy > V.bh + 140) continue;
-    drawTile(g, c, sx, sy); if (c.out) { const d = S.map.M ? Math.max(S.map.M - c.x, S.map.M - c.y, c.x - (S.map.M + S.map.P - 1), c.y - (S.map.M + S.map.P - 1), 1) : 1; g.globalAlpha = Math.min(.68, .12 + d * .07); g.fillStyle = '#0a0814'; g.beginPath(); g.moveTo(sx - 16, sy); g.lineTo(sx, sy - 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 16, sy + c.h * 8 + 6); g.lineTo(sx, sy + 14 + c.h * 8); g.lineTo(sx - 16, sy + c.h * 8 + 6); g.fill(); g.globalAlpha = 1; }
+    let cc = c; if (c.wall) { if (!wallSide(c).back) { cc = c._stub || (c._stub = Object.assign({}, c, { h: c.hf + 1, stub: 1, _stub: null })); c.stubNow = 1; } else c.stubNow = 0; }
+    const [sx, sy] = toScreen(c.x, c.y, cc.h); if (sx < -60 || sx > V.bw + 60 || sy < -90 - cc.h * 8 || sy > V.bh + 140) continue;
+    drawTile(g, cc, sx, sy); if (c.out && !c.wall) { const d = S.map.M ? Math.max(S.map.M - c.x, S.map.M - c.y, c.x - (S.map.M + S.map.P - 1), c.y - (S.map.M + S.map.P - 1), 1) : 1; g.globalAlpha = Math.min(.68, .12 + d * .07); g.fillStyle = '#0a0814'; g.beginPath(); g.moveTo(sx - 16, sy); g.lineTo(sx, sy - 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 16, sy + c.h * 8 + 6); g.lineTo(sx, sy + 14 + c.h * 8); g.lineTo(sx - 16, sy + c.h * 8 + 6); g.fill(); g.globalAlpha = 1; }
     if (HL) { const k = c.x + ',' + c.y; if (HL.tiles && HL.tiles.has(k)) drawHighlight(g, sx, sy, HL.tiles.get(k), pulse); if (HL.area && HL.area.has(k)) drawHighlight(g, sx, sy, '#ffcf40', .45); if (HL.sel && HL.sel.x === c.x && HL.sel.y === c.y) { g.strokeStyle = '#fff'; drawDiamond(g, sx, sy); g.stroke(); } if (HL.cur && HL.cur.x === c.x && HL.cur.y === c.y) { drawHighlight(g, sx, sy, '#ffffff', .25 + Math.sin(V.t / 5) * .12); g.strokeStyle = '#ffe14a'; g.lineWidth = 1; drawDiamond(g, sx, sy); g.stroke(); } }
-    if (c.obj) { const k = { tree: 1.5, pine: 1.45, deadtree: 1.45, house: 1.45, crystal: 1.35, pillar: 1.3, ruin: 1.3, lantern: 1.35, rock: 1.2, crate: 1.15, palm: 1.4, mast: 1.3, statue: 1.3, tent: 1.4, stall: 1.3, gmush: 1.3, spike: 1.3, gear: 1.2, grave: 1.2, banner: 1.3, snowpine: 1.45, barrel: 1.1, portal: 1.3 }[c.obj] || 1; if (k !== 1) { g.save(); g.translate(sx, sy); g.scale(k, k); drawObj(g, c, 0, 0); g.restore(); } else drawObj(g, c, sx, sy); }
+    if (c.obj) { const k = { tree: 1.5, pine: 1.45, deadtree: 1.45, house: 1.45, crystal: 1.35, pillar: 1.3, ruin: 1.3, lantern: 1.35, rock: 1.2, crate: 1.15, palm: 1.4, mast: 1.3, statue: 1.3, tent: 1.4, stall: 1.3, gmush: 1.3, spike: 1.3, gear: 1.2, grave: 1.2, banner: 1.3, snowpine: 1.45, barrel: 1.1, portal: 1.3, throne: 1.2, bookshelf: 1.15, clock: 1.15, well: 1.2, bush: 1.2, altar: 1.1 }[c.obj] || 1; if (k !== 1) { g.save(); g.translate(sx, sy); g.scale(k, k); drawObj(g, c, 0, 0); g.restore(); } else drawObj(g, c, sx, sy); }
   }
   if (lastD >= 0) flushUnits(lastD);
   // seta sobre a unidade ativa
