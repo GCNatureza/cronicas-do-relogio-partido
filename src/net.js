@@ -116,7 +116,7 @@ function guestChoice(d) {
 }
 // ---------- turno remoto ----------
 async function guestTurn(d) {
-  if (d.owner !== myId()) return; const u = UNIT_BY_ID().get(d.id); if (!u) return; NET.myTurn = true; sfx('select'); toast('Sua vez, ' + u.name + '!');
+  if (d.owner !== myId()) return; const u = UNIT_BY_ID().get(d.id); if (!u || (NET.myTurn && NET.turnId === d.id)) return; NET.myTurn = true; NET.turnId = d.id; sfx('select'); toast('Sua vez, ' + u.name + '!');
   const send = (cmd) => new Promise(res => { const seq = ++NET.seq; cmd.q = seq; cmd.by = myId(); cmd.u = u.id; NET.waiting.set(seq, res); emitT('cmd', cmd); const rt = setInterval(() => { if (!NET.waiting.has(seq)) return clearInterval(rt); emitT('cmd', cmd); }, 1800); setTimeout(() => { if (NET.waiting.has(seq)) { NET.waiting.delete(seq); clearInterval(rt); res({ ok: false }); } }, 30000); });
   await playerTurn(u, {
     move: async n => { setActions('…', []); const r = await send({ t: 'move', x: n.x, y: n.y }); await sleep(200); return r.ok; },
@@ -131,11 +131,11 @@ function ownerPresent(owner) { if (!NET.tab) return false; return NET.tab.peers(
 async function remoteTurn(u) {
   const owner = u.member.owner; netFx('turn', { id: u.id, owner }); let moved = false, acted = false; const origin = { x: u.x, y: u.y, fx: u.fx, fy: u.fy };
   setActions(`Vez de ${u.name} (outro jogador)…`, [btn('Assumir o turno', () => { NET.takeover = u.id; }, 'ghost')]); showUnitCard(u);
-  const done = new Set(); let absent = 0;
+  const done = new Set(); let absent = 0, ping = performance.now();
   while (true) {
     if (NET.takeover === u.id) { NET.takeover = null; netFx('turnEnd', { id: u.id }); return 'local'; }
     const c = NET.cmdQ.shift();
-    if (!c) { await sleep(100); if (!ownerPresent(owner)) { if (++absent > 60) { toast(u.name + ' saiu — o líder assume o turno'); netFx('turnEnd', { id: u.id }); return 'local'; } } else absent = 0; continue; }
+    if (!c) { await sleep(100); if (!done.size && performance.now() - ping > 4000) { ping = performance.now(); netFx('turn', { id: u.id, owner }); } if (!ownerPresent(owner)) { if (++absent > 60) { toast(u.name + ' saiu — o líder assume o turno'); netFx('turnEnd', { id: u.id }); return 'local'; } } else absent = 0; continue; }
     if (c.by !== owner || c.u !== u.id) continue;
     if (done.has(c.q)) { emitT('ack', { q: c.q, ok: true, to: owner }); continue; } done.add(c.q);
     let ok = false;
