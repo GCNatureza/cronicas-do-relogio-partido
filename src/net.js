@@ -7,11 +7,11 @@ const isHost = () => NET.mode === 'host', isGuest = () => NET.mode === 'guest';
 function myId() { if (NET.me) return NET.me; try { let v = localStorage.getItem('cronicas_pid'); if (!v) { v = 'p' + Math.random().toString(36).slice(2, 10); localStorage.setItem('cronicas_pid', v); } NET.me = v; } catch (e) { NET.me = 'p' + Math.random().toString(36).slice(2, 10); } return NET.me; }
 async function netInit() {
   try { NET.narr = localStorage.getItem('cronicas_narr') === '1'; NET.voice = localStorage.getItem('cronicas_voz') !== '0'; } catch (e) {}
-  if (!window.claude || !window.claude.use) return;
-  try { const [room, user, db, dict, tts] = await Promise.all(['room', 'user', 'db', 'dictation', 'tts'].map(n => window.claude.use(n).catch(() => null)));
+  const api = window.claude && window.claude.use ? window.claude : window.FBNET; if (!api) return; NET.web = api === window.FBNET;
+  try { const [room, user, db, dict, tts] = await Promise.all(['room', 'user', 'db', 'dictation', 'tts'].map(n => api.use(n).catch(() => null)));
     NET.room = room; NET.user = user; NET.db = db; NET.dict = dict; NET.tts = tts; NET.avail = !!room;
     if (user) { try { const id = await user.id(); if (id) NET.me = id; } catch (e) {} }
-    if (dict) { dict.onFinal(({ text }) => { if (text && text.trim()) sendChat(text.trim()); }); dict.onState(({ state }) => { const b = $('#mic'); if (b) b.classList.toggle('on', state === 'listening'); }); }
+    if (dict) { dict.onFinal(({ text }) => { if (text && text.trim()) sendChat(text.trim()); }); dict.onState(({ state }) => { const b = NET.web ? $('#chatmic') : $('#mic'); if (b) b.classList.toggle('on', state === 'listening'); }); }
   } catch (e) { console.warn('net', e); }
 }
 // ---------- envio ----------
@@ -43,9 +43,9 @@ function hostTick() {
   if (!isHost() || !NET.tab) return; const now = performance.now();
   if (now - NET.lastSceneEmit > 2500 && NET.sceneDesc) { NET.lastSceneEmit = now; emitT('scene', NET.sceneDesc); }
   if (!S || !S.units || NET.sceneDesc && NET.sceneDesc.menu) return;
-  if (now - NET.lastSt > 110) { NET.lastSt = now; const b = B && B.on ? { on: 1, r: B.round, a: B.active ? B.active.id : null, o: (B.order || []).filter(isActor).map(u => u.id), ai: B.ai ? 1 : 0 } : { on: 0 };
+  if (now - NET.lastSt > (NET.web ? 200 : 110)) { NET.lastSt = now; const b = B && B.on ? { on: 1, r: B.round, a: B.active ? B.active.id : null, o: (B.order || []).filter(isActor).map(u => u.id), ai: B.ai ? 1 : 0 } : { on: 0 };
     emitT('st', { s: NET.sceneDesc ? NET.sceneDesc.key : null, u: S.units.map(unitDyn), b, it: G.items, rot: null }); }
-  if (S.units.length && now - (NET.lastUnit || 0) > 220) { NET.lastUnit = now; const u = S.units[NET.unitRR++ % S.units.length]; if (u) emitT('unit', unitStatic(u)); }
+  if (S.units.length && now - (NET.lastUnit || 0) > (NET.web ? 450 : 220)) { NET.lastUnit = now; const u = S.units[NET.unitRR++ % S.units.length]; if (u) emitT('unit', unitStatic(u)); }
 }
 function sceneDesc(desc) { if (!isHost()) return; NET.sceneDesc = desc; NET.lastSceneEmit = performance.now(); emitT('scene', desc); if (S && S.units) S.units.forEach(u => emitT('unit', unitStatic(u))); }
 function netScene(ch, mode, extra) { sceneDesc(Object.assign({ key: 's' + (++NET.seq), theme: S.map.theme, seed: S.mapSeed, ch, mode }, extra || {})); }
@@ -162,9 +162,9 @@ async function joinRoom(code) {
   NET.tab.on('chat', m => { const d = m.data || {}; if (typeof d.text !== 'string') return; gotChat(String(d.name || 'Alguém').slice(0, 20), d.text.slice(0, 300), d.by || m.by, m.sameTab); });
   NET.tab.on('lobby', m => { const d = m.data || {}; try { lobbyMsg(d, m); } catch (e) { console.warn(e); } });
   NET.tab.onPeers(ch => { NET.peers = ch.peers; if (NET.lobbyDraw) NET.lobbyDraw(); if (isHost() && ch.joined.length) { NET.lastSceneEmit = 0; } });
-  $('#chatbtn').classList.remove('hidden'); $('#mic').classList.toggle('hidden', !NET.dict);
+  $('#chatbtn').classList.remove('hidden'); $('#mic').classList.toggle('hidden', !(NET.dict || NET.web)); if (NET.web) VOICE.ui();
 }
-async function leaveTable() { try { if (NET.tab) await NET.tab.leave(); } catch (e) {} NET.tab = null; NET.mode = 'solo'; NET.code = null; NET.hostPeer = null; NET.sceneKey = null; $('#chatbtn').classList.add('hidden'); $('#mic').classList.add('hidden'); $('#chat').classList.add('hidden'); titleScreen(); }
+async function leaveTable() { if (NET.web) VOICE.stop(); try { if (NET.tab) await NET.tab.leave(); } catch (e) {} NET.tab = null; NET.mode = 'solo'; NET.code = null; NET.hostPeer = null; NET.sceneKey = null; $('#chatbtn').classList.add('hidden'); $('#mic').classList.add('hidden'); $('#chat').classList.add('hidden'); titleScreen(); }
 function lobbyMsg(d, m) {
   if (isHost()) {
     if (d.t === 'hero' && d.member) { const mm = sanitizeMember(d.member, m.by || d.by); if (!mm) return; const ex = G.party.find(p => p.owner === mm.owner); if (ex) { emitT('lobby', { t: 'have', to: mm.owner }); return; } if (!NET.pending.some(p => p.owner === mm.owner)) NET.pending.push(mm); if (NET.lobbyDraw) NET.lobbyDraw(); if (NET.started) addPending(); }
@@ -185,7 +185,7 @@ function groupScreen() {
   if (NET.avail) {
     s.appendChild(btn('🌐 Criar mesa online<small>Você é o líder: a partida roda no seu aparelho e os outros entram com um código.</small>', () => hostSetup(), 'ok wide'));
     s.appendChild(btn('🔑 Entrar numa mesa online<small>Digite o código que o líder mostrar.</small>', () => joinSetup(), 'wide'));
-  } else s.appendChild(h('p', 'hint', 'A mesa online só funciona com o jogo aberto pelo link do Claude, com a conta conectada e permissão de interação no artefato.'));
+  } else s.appendChild(h('p', 'hint', NET.web ? 'Não foi possível conectar ao servidor da mesa online. Verifique a internet e recarregue a página.' : 'A mesa online só funciona com o jogo aberto pelo link do Claude, com a conta conectada e permissão de interação no artefato.'));
   s.appendChild(btn('← Voltar', titleScreen, 'ghost'));
 }
 function couchInfo() {
@@ -242,7 +242,7 @@ function drawChat() { const log = $('#chatlog'); if (!log) return; log.innerHTML
 const BUBBLES = []; function showBubble(u, text) { BUBBLES.push({ u, text: text.slice(0, 80), t: 0 }); }
 function drawBubbles() { const s = V.scale, d = Math.max(V.dpr, V.scale / 2.4); for (let i = BUBBLES.length - 1; i >= 0; i--) { const b = BUBBLES[i]; b.t++; if (b.t > 300 || !b.u._sx) { BUBBLES.splice(i, 1); continue; } const x = b.u._sx * s, y = (b.u._sy - b.u._h - 12) * s; ctx.font = `600 ${13 * d}px Alegreya,Georgia,serif`; const w = Math.min(ctx.measureText(b.text).width + 16 * d, 320 * d); ctx.fillStyle = 'rgba(250,240,215,.95)'; ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 26 * d, w, 22 * d, 8 * d) : ctx.rect(x - w / 2, y - 26 * d, w, 22 * d); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#3a2412'; ctx.textAlign = 'center'; ctx.fillText(b.text.length > 46 ? b.text.slice(0, 44) + '…' : b.text, x, y - 10 * d, w - 8 * d); } }
 function toggleChat() { const c = $('#chat'); c.classList.toggle('hidden'); drawChat(); }
-function micClick() { if (!NET.dict) return toast('Ditado indisponível neste navegador'); if ($('#mic').classList.contains('on')) { NET.dict.stop().catch(() => {}); return; } NET.dict.start().catch(e => toast(e && e.code === 'not_granted' ? 'Microfone não autorizado' : 'Não foi possível ouvir agora')); }
+function micClick(chat) { if (NET.web && !chat) return VOICE.toggle(); if (!NET.dict) return toast('Ditado indisponível neste navegador'); if ($('#mic').classList.contains('on')) { NET.dict.stop().catch(() => {}); return; } NET.dict.start().catch(e => toast(e && e.code === 'not_granted' ? 'Microfone não autorizado' : 'Não foi possível ouvir agora')); }
 // ---------- narração por voz (TTS) ----------
 const SPK_VOICE = { borin: 'rounded', lyra: 'airy', mirela: 'glassy', eldrin: 'rounded', malakar: 'rounded', rei: 'rounded' };
 function narrate(k, text) { if (!NET.narr || !NET.tts) return; const v = k ? SPK_VOICE[k] || ['buttery', 'airy', 'glassy', 'rounded'][(k.length * 7) % 4] : 'buttery'; NET.tts.speak(text, { voice: v, language: 'pt-BR' }).catch(() => {}); }

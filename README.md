@@ -12,7 +12,7 @@ RPG tático no navegador, inspirado em *Final Fantasy Tactics* e *Chrono Trigger
 - Joga no PC, no celular e na **smart TV com controle** (Gamepad API, teclado ou controle remoto).
 - **Cooperativo no sofá:** cada jogador comanda o próprio herói com o seu controle.
 
-> A **mesa online** (multijogador por código, chat e rádio de voz) só funciona quando o jogo é aberto como artefato do Claude. Na versão do GitHub, o modo solo e o cooperativo no sofá funcionam normalmente.
+- **Mesa online:** um jogador cria a mesa e os outros entram com o código de 4 letras. Tem chat, ditado e **voz ao vivo** (WebRTC, de navegador para navegador). A comunicação passa pelo Firebase Realtime Database (`src/fbnet.js`).
 
 ## Código
 `index.html` é o jogo completo em um único arquivo. As fontes estão em `src/`; para gerar de novo o arquivo: `cd src && python3 build.py`.

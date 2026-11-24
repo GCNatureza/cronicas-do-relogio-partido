@@ -276,7 +276,7 @@ function setupInput() {
   $('#mic').onclick = e => { e.stopPropagation(); micClick(); };
   $('#chatsend').onclick = e => { e.stopPropagation(); const i = $('#chatin'); if (i.value.trim()) { sendChat(i.value.trim()); i.value = ''; } };
   $('#chatin').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#chatsend').click(); } e.stopPropagation(); });
-  $('#chatmic').onclick = e => { e.stopPropagation(); micClick(); };
+  $('#chatmic').onclick = e => { e.stopPropagation(); micClick(true); };
   addEventListener('resize', resize);
 }
 function loop(t) { try { pollPads(); render(); drawBubbles(); drawPreviews(t); hostTick(); } catch (e) { console.error(e); } requestAnimationFrame(loop); }
