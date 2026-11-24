@@ -355,7 +355,7 @@ function synthToggle() { AU.on = !AU.on; if (AU.ctx) AU.music.gain.setTargetAtTi
 
 // ================= ÁUDIO GRAVADO: música orquestral, efeitos e ambiente (FLARE, CC-BY-SA 3.0) =================
 // Se algum arquivo não carregar, o jogo volta para o som sintetizado acima.
-const AUD = { base: 'audio/', buf: {}, req: {}, ok: true, cur: null, curName: null, vol: 0.55, amb: null, ambName: null };
+const AUD = { base: /github\.io$|^localhost$|^127\./.test(location.hostname) ? 'audio/' : 'https://gcnatureza.github.io/cronicas-do-relogio-partido/audio/', buf: {}, req: {}, ok: true, cur: null, curName: null, vol: 0.55, amb: null, ambName: null };
 const SONG_FILE = { title: 'title', town: 'town', forest: 'forest', crypt: 'dungeon', battle: 'battle', boss: 'boss', future: 'unrest', victory: 'safe_room', ending: 'magical' };
 function songFile(name) {
   const th = typeof S !== 'undefined' && S && S.map ? S.map.theme : '';
