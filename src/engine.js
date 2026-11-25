@@ -154,7 +154,7 @@ const cv = document.createElement('canvas'); const ctx = cv.getContext('2d');
 const buf = mk(10, 10); const bctx = buf.getContext('2d');
 const lightC = mk(10, 10); const lctx = lightC.getContext('2d');
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 3); const W = innerWidth, H = innerHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2); const W = innerWidth, H = innerHeight;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
   V.uiZ = W >= 1100 ? clamp(Math.min(W / 1100, H / 720), 1, 3) : 1;
   const ui = document.getElementById('ui'); if (ui) { ui.style.width = W / V.uiZ + 'px'; ui.style.height = H / V.uiZ + 'px'; ui.style.transform = `scale(${V.uiZ})`; }
@@ -305,14 +305,14 @@ V.q = (() => { try { const v = localStorage.getItem('cronicas_q'); if (v != null
 const ATMOS = { village: { dark: .36, tint: 'rgba(255,130,60,.07)', rays: '255,200,140', fog: 0 }, forest: { dark: .44, tint: 'rgba(40,120,140,.08)', rays: '150,230,255', fog: '190,240,230' },
   crypt: { dark: .7, tint: 'rgba(90,40,140,.08)', rays: 0, fog: '150,110,200' }, future: { dark: .28, tint: 'rgba(255,40,0,.09)', rays: '255,120,60', fog: '120,60,50' }, tower: { dark: .22, tint: 'rgba(120,80,255,.07)', rays: '200,180,255', fog: 0 } };
 const hex6 = c => /^#[0-9a-f]{3}$/i.test(c) ? '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3] : /^#[0-9a-f]{6}$/i.test(c) ? c : null;
-function lightList() {
+function lightListOld() {
   const th = S.map.theme; const L = [];
   S.map.g.flat().forEach(c => { if (c.light && c.t) { if (c.wall && !wallSide(c).face) return; const [sx, sy0] = toScreen(c.x, c.y, c.h); const sy = c.wall ? sy0 + Math.max(4, c.h * 8 + 6 - 34) + 22 : sy0; if (sx > -60 && sx < V.bw + 60 && sy > -60 && sy < V.bh + 80) L.push([sx, sy - 14, c.obj ? 52 : 34, hex6(c.light)]); } });
   S.units.forEach(u => { if (u.visible && u.alpha > 0 && !u.ko && u._sx != null) L.push([u._sx, u._sy - 10, th === 'crypt' ? 34 : 26, u.aura ? hex6(u.aura) : null]); });
   let n = 0; for (const p of P) { if (p.glow && p.s > 1.5 && n++ < 60) L.push([p.x, p.y, 10, hex6(p.c)]); }
   return L.filter(l => isFinite(l[0]) && isFinite(l[1]));
 }
-function postFX() {
+function postFXOld() {
   if (V._lq !== V.q) { V._lq = V.q; document.body.classList.toggle('lowq', V.q === 0); }
   const A = (VIS[S.map.theme] || VIS.village).atmos; const s = V.scale, W = cv.width, H = cv.height, t = V.t; const L = lightList();
   // escuridão suave (máscara em baixa resolução ampliada com suavização)
@@ -361,7 +361,7 @@ function atmosphere(A, W, H, t) {
 }
 function ambient() { ambient2(); }
 const PERF = { last: 0, acc: 0, n: 0 };
-function perfWatch() { const now = performance.now(); if (PERF.last) { PERF.acc += now - PERF.last; PERF.n++; } PERF.last = now; if (PERF.n >= 150) { const avg = PERF.acc / PERF.n; PERF.acc = 0; PERF.n = 0; if (avg > 40 && V.q > 0 && !document.hidden) { V.q--; if (typeof toast === 'function') toast('Qualidade gráfica ajustada para manter a fluidez'); } } }
+function perfWatch() { const now = performance.now(); if (PERF.last) { PERF.acc += now - PERF.last; PERF.n++; } PERF.last = now; if (PERF.n >= 90) { const avg = PERF.acc / PERF.n; PERF.acc = 0; PERF.n = 0; if (avg > 30 && V.q > 0 && !document.hidden) { V.q--; if (typeof toast === 'function') toast('Qualidade gráfica ajustada para manter a fluidez'); } } }
 document.addEventListener('visibilitychange', () => { PERF.last = 0; PERF.acc = 0; PERF.n = 0; });
 let HL = null; let B = { on: false }; // destaque {tiles:Map key->color, sel:{x,y}, area:Set}
 function render() {
@@ -386,7 +386,7 @@ function render() {
     const [sx, sy] = toScreen(c.x, c.y, cc.h); if (sx < -60 || sx > V.bw + 60 || sy < -90 - cc.h * 8 || sy > V.bh + 140) continue;
     drawTile(g, cc, sx, sy); if (c.out && !c.wall) { const d = S.map.M ? Math.max(S.map.M - c.x, S.map.M - c.y, c.x - (S.map.M + S.map.P - 1), c.y - (S.map.M + S.map.P - 1), 1) : 1; g.globalAlpha = Math.min(.68, .12 + d * .07); g.fillStyle = '#0a0814'; g.beginPath(); g.moveTo(sx - 16, sy); g.lineTo(sx, sy - 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 16, sy + c.h * 8 + 6); g.lineTo(sx, sy + 14 + c.h * 8); g.lineTo(sx - 16, sy + c.h * 8 + 6); g.fill(); g.globalAlpha = 1; }
     if (HL) { const k = c.x + ',' + c.y; if (HL.tiles && HL.tiles.has(k)) drawHighlight(g, sx, sy, HL.tiles.get(k), pulse); if (HL.area && HL.area.has(k)) drawHighlight(g, sx, sy, '#ffcf40', .45); if (HL.sel && HL.sel.x === c.x && HL.sel.y === c.y) { g.strokeStyle = '#fff'; drawDiamond(g, sx, sy); g.stroke(); } if (HL.cur && HL.cur.x === c.x && HL.cur.y === c.y) { drawHighlight(g, sx, sy, '#ffffff', .25 + Math.sin(V.t / 5) * .12); g.strokeStyle = '#ffe14a'; g.lineWidth = 1; drawDiamond(g, sx, sy); g.stroke(); } }
-    if (c.obj) { const k = { tree: 1.5, pine: 1.45, deadtree: 1.45, house: 1.45, crystal: 1.35, pillar: 1.3, ruin: 1.3, lantern: 1.35, rock: 1.2, crate: 1.15, palm: 1.4, mast: 1.3, statue: 1.3, tent: 1.4, stall: 1.3, gmush: 1.3, spike: 1.3, gear: 1.2, grave: 1.2, banner: 1.3, snowpine: 1.45, barrel: 1.1, portal: 1.3, throne: 1.2, bookshelf: 1.15, clock: 1.15, well: 1.2, bush: 1.2, altar: 1.1 }[c.obj] || 1; if (k !== 1) { g.save(); g.translate(sx, sy); g.scale(k, k); drawObj(g, c, 0, 0); g.restore(); } else drawObj(g, c, sx, sy); }
+    if (c.obj) { const k = { tree: 1.5, pine: 1.45, deadtree: 1.45, house: 1.45, crystal: 1.35, pillar: 1.3, ruin: 1.3, lantern: 1.35, rock: 1.2, crate: 1.15, palm: 1.4, mast: 1.3, statue: 1.3, tent: 1.4, stall: 1.3, gmush: 1.3, spike: 1.3, gear: 1.2, grave: 1.2, banner: 1.3, snowpine: 1.45, barrel: 1.1, portal: 1.3, throne: 1.2, bookshelf: 1.15, clock: 1.15, well: 1.2, bush: 1.2, altar: 1.1 }[c.obj] || 1; if (drawObjFast(g, c, sx, sy, k)) {} else if (k !== 1) { g.save(); g.translate(sx, sy); g.scale(k, k); drawObj(g, c, 0, 0); g.restore(); } else drawObj(g, c, sx, sy); }
   }
   if (lastD >= 0) flushUnits(lastD);
   // seta sobre a unidade ativa
@@ -404,7 +404,7 @@ function render() {
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.restore();
   // composição final
-  ctx.imageSmoothingEnabled = false; ctx.drawImage(buf, 0, 0, V.bw * V.scale, V.bh * V.scale);
+  if (V.q >= 2) { ctx.imageSmoothingEnabled = false; ctx.drawImage(buf, 0, 0, V.bw * V.scale, V.bh * V.scale); }
   postFX();
   overlayHiRes();
   perfWatch();

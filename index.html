@@ -1400,7 +1400,7 @@ const cv = document.createElement('canvas'); const ctx = cv.getContext('2d');
 const buf = mk(10, 10); const bctx = buf.getContext('2d');
 const lightC = mk(10, 10); const lctx = lightC.getContext('2d');
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 3); const W = innerWidth, H = innerHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2); const W = innerWidth, H = innerHeight;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
   V.uiZ = W >= 1100 ? clamp(Math.min(W / 1100, H / 720), 1, 3) : 1;
   const ui = document.getElementById('ui'); if (ui) { ui.style.width = W / V.uiZ + 'px'; ui.style.height = H / V.uiZ + 'px'; ui.style.transform = `scale(${V.uiZ})`; }
@@ -1551,14 +1551,14 @@ V.q = (() => { try { const v = localStorage.getItem('cronicas_q'); if (v != null
 const ATMOS = { village: { dark: .36, tint: 'rgba(255,130,60,.07)', rays: '255,200,140', fog: 0 }, forest: { dark: .44, tint: 'rgba(40,120,140,.08)', rays: '150,230,255', fog: '190,240,230' },
   crypt: { dark: .7, tint: 'rgba(90,40,140,.08)', rays: 0, fog: '150,110,200' }, future: { dark: .28, tint: 'rgba(255,40,0,.09)', rays: '255,120,60', fog: '120,60,50' }, tower: { dark: .22, tint: 'rgba(120,80,255,.07)', rays: '200,180,255', fog: 0 } };
 const hex6 = c => /^#[0-9a-f]{3}$/i.test(c) ? '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3] : /^#[0-9a-f]{6}$/i.test(c) ? c : null;
-function lightList() {
+function lightListOld() {
   const th = S.map.theme; const L = [];
   S.map.g.flat().forEach(c => { if (c.light && c.t) { if (c.wall && !wallSide(c).face) return; const [sx, sy0] = toScreen(c.x, c.y, c.h); const sy = c.wall ? sy0 + Math.max(4, c.h * 8 + 6 - 34) + 22 : sy0; if (sx > -60 && sx < V.bw + 60 && sy > -60 && sy < V.bh + 80) L.push([sx, sy - 14, c.obj ? 52 : 34, hex6(c.light)]); } });
   S.units.forEach(u => { if (u.visible && u.alpha > 0 && !u.ko && u._sx != null) L.push([u._sx, u._sy - 10, th === 'crypt' ? 34 : 26, u.aura ? hex6(u.aura) : null]); });
   let n = 0; for (const p of P) { if (p.glow && p.s > 1.5 && n++ < 60) L.push([p.x, p.y, 10, hex6(p.c)]); }
   return L.filter(l => isFinite(l[0]) && isFinite(l[1]));
 }
-function postFX() {
+function postFXOld() {
   if (V._lq !== V.q) { V._lq = V.q; document.body.classList.toggle('lowq', V.q === 0); }
   const A = (VIS[S.map.theme] || VIS.village).atmos; const s = V.scale, W = cv.width, H = cv.height, t = V.t; const L = lightList();
   // escuridão suave (máscara em baixa resolução ampliada com suavização)
@@ -1607,7 +1607,7 @@ function atmosphere(A, W, H, t) {
 }
 function ambient() { ambient2(); }
 const PERF = { last: 0, acc: 0, n: 0 };
-function perfWatch() { const now = performance.now(); if (PERF.last) { PERF.acc += now - PERF.last; PERF.n++; } PERF.last = now; if (PERF.n >= 150) { const avg = PERF.acc / PERF.n; PERF.acc = 0; PERF.n = 0; if (avg > 40 && V.q > 0 && !document.hidden) { V.q--; if (typeof toast === 'function') toast('Qualidade gráfica ajustada para manter a fluidez'); } } }
+function perfWatch() { const now = performance.now(); if (PERF.last) { PERF.acc += now - PERF.last; PERF.n++; } PERF.last = now; if (PERF.n >= 90) { const avg = PERF.acc / PERF.n; PERF.acc = 0; PERF.n = 0; if (avg > 30 && V.q > 0 && !document.hidden) { V.q--; if (typeof toast === 'function') toast('Qualidade gráfica ajustada para manter a fluidez'); } } }
 document.addEventListener('visibilitychange', () => { PERF.last = 0; PERF.acc = 0; PERF.n = 0; });
 let HL = null; let B = { on: false }; // destaque {tiles:Map key->color, sel:{x,y}, area:Set}
 function render() {
@@ -1632,7 +1632,7 @@ function render() {
     const [sx, sy] = toScreen(c.x, c.y, cc.h); if (sx < -60 || sx > V.bw + 60 || sy < -90 - cc.h * 8 || sy > V.bh + 140) continue;
     drawTile(g, cc, sx, sy); if (c.out && !c.wall) { const d = S.map.M ? Math.max(S.map.M - c.x, S.map.M - c.y, c.x - (S.map.M + S.map.P - 1), c.y - (S.map.M + S.map.P - 1), 1) : 1; g.globalAlpha = Math.min(.68, .12 + d * .07); g.fillStyle = '#0a0814'; g.beginPath(); g.moveTo(sx - 16, sy); g.lineTo(sx, sy - 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 16, sy + c.h * 8 + 6); g.lineTo(sx, sy + 14 + c.h * 8); g.lineTo(sx - 16, sy + c.h * 8 + 6); g.fill(); g.globalAlpha = 1; }
     if (HL) { const k = c.x + ',' + c.y; if (HL.tiles && HL.tiles.has(k)) drawHighlight(g, sx, sy, HL.tiles.get(k), pulse); if (HL.area && HL.area.has(k)) drawHighlight(g, sx, sy, '#ffcf40', .45); if (HL.sel && HL.sel.x === c.x && HL.sel.y === c.y) { g.strokeStyle = '#fff'; drawDiamond(g, sx, sy); g.stroke(); } if (HL.cur && HL.cur.x === c.x && HL.cur.y === c.y) { drawHighlight(g, sx, sy, '#ffffff', .25 + Math.sin(V.t / 5) * .12); g.strokeStyle = '#ffe14a'; g.lineWidth = 1; drawDiamond(g, sx, sy); g.stroke(); } }
-    if (c.obj) { const k = { tree: 1.5, pine: 1.45, deadtree: 1.45, house: 1.45, crystal: 1.35, pillar: 1.3, ruin: 1.3, lantern: 1.35, rock: 1.2, crate: 1.15, palm: 1.4, mast: 1.3, statue: 1.3, tent: 1.4, stall: 1.3, gmush: 1.3, spike: 1.3, gear: 1.2, grave: 1.2, banner: 1.3, snowpine: 1.45, barrel: 1.1, portal: 1.3, throne: 1.2, bookshelf: 1.15, clock: 1.15, well: 1.2, bush: 1.2, altar: 1.1 }[c.obj] || 1; if (k !== 1) { g.save(); g.translate(sx, sy); g.scale(k, k); drawObj(g, c, 0, 0); g.restore(); } else drawObj(g, c, sx, sy); }
+    if (c.obj) { const k = { tree: 1.5, pine: 1.45, deadtree: 1.45, house: 1.45, crystal: 1.35, pillar: 1.3, ruin: 1.3, lantern: 1.35, rock: 1.2, crate: 1.15, palm: 1.4, mast: 1.3, statue: 1.3, tent: 1.4, stall: 1.3, gmush: 1.3, spike: 1.3, gear: 1.2, grave: 1.2, banner: 1.3, snowpine: 1.45, barrel: 1.1, portal: 1.3, throne: 1.2, bookshelf: 1.15, clock: 1.15, well: 1.2, bush: 1.2, altar: 1.1 }[c.obj] || 1; if (drawObjFast(g, c, sx, sy, k)) {} else if (k !== 1) { g.save(); g.translate(sx, sy); g.scale(k, k); drawObj(g, c, 0, 0); g.restore(); } else drawObj(g, c, sx, sy); }
   }
   if (lastD >= 0) flushUnits(lastD);
   // seta sobre a unidade ativa
@@ -1650,7 +1650,7 @@ function render() {
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.restore();
   // composição final
-  ctx.imageSmoothingEnabled = false; ctx.drawImage(buf, 0, 0, V.bw * V.scale, V.bh * V.scale);
+  if (V.q >= 2) { ctx.imageSmoothingEnabled = false; ctx.drawImage(buf, 0, 0, V.bw * V.scale, V.bh * V.scale); }
   postFX();
   overlayHiRes();
   perfWatch();
@@ -1914,6 +1914,7 @@ function faceTex(t, side, d) {
         else { let k = (hash(Math.floor((i + off) / 8), course, sd) - .5) * .22 + (fbm(i, y, sd) - .5) * .1; if (rr === 0) k += .12; if (cat === 'plate' && (i === 2 || i === 13) && rr === 2) k = .45; col = lit(base, k); }
       } else if (cat === 'plank') { const course = Math.floor(r / 3); col = r % 3 === 2 ? lit(base, -.35) : lit(base, (hash(course, i >> 3, sd) - .5) * .2 + Math.sin(i * 1.7 + course) * .04); }
       else { let k = (fbm(i * 1.3, y, sd) - .5) * .45; if (Math.abs(Math.sin(i * .6 + y * .35 + fbm(i, y, sd + 2) * 5)) < .08) k -= .3; col = lit(base, k); }
+      { const sh = 1 - Math.min(1, r / (d + 8)) * .3; col = [col[0] * sh, col[1] * sh, col[2] * sh]; }
       const o = (y * 16 + i) * 4; id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = 255; } }
   g.putImageData(id, 0, 0); TEX.set(key, c); return c;
 }
@@ -1938,8 +1939,6 @@ function drawTile(g, c, sx, sy) {
     const [rx, ry] = rotP(c.x, c.y);
     [[-1, 0, 0], [0, -1, 1]].forEach(([dx, dy, side]) => { const [wx, wy] = unrotP(rx + dx, ry + dy); const n = tile(S.map, wx, wy); if (!n || !n.t || n.stubNow || n.h <= c.h) return; const k = Math.min(2, n.h - c.h);
       g.fillStyle = `rgba(0,0,0,${.16 * k})`; g.beginPath(); if (side === 0) { g.moveTo(sx - 16, sy); g.lineTo(sx, sy - 8); g.lineTo(sx, sy - 3); g.lineTo(sx - 10, sy + 2); } else { g.moveTo(sx, sy - 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 10, sy + 2); g.lineTo(sx, sy - 3); } g.fill(); });
-    const lg = g.createLinearGradient(0, sy, 0, sy + 8 + d); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = lg;
-    g.beginPath(); g.moveTo(sx - 16, sy); g.lineTo(sx, sy + 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 16, sy + d); g.lineTo(sx, sy + 8 + d); g.lineTo(sx - 16, sy + d); g.fill();
     g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(sx - 15, sy - 1, 15, 1);
     edgeTufts(g, c, sx, sy);
     if (isGrassy(c.t) && !c.obj) { g.fillStyle = tt.det; for (let i = 0; i < 4; i++) { const bx = sx + Math.round((hash(c.x, c.y, i + 20) - .5) * 20), by = sy + Math.round((hash(c.y, c.x, i + 30) - .5) * 7); const sw = Math.round(Math.sin(t / 25 + c.x * .8 + c.y * .5 + i) * 1.2); g.fillRect(bx, by - 2, 1, 2); g.fillRect(bx + sw, by - 4, 1, 2); } }
@@ -2075,6 +2074,74 @@ function applyWalls(T, g, all, M, P) {
       if (W.deco.includes('fireplace') && W.deco[Math.floor(hash(c.x, c.y, 5) * W.deco.length)] === 'fireplace') c.light = '#ff8030';
       if (W.deco.includes('crystalw') && W.deco[Math.floor(hash(c.x, c.y, 5) * W.deco.length)] === 'crystalw') c.light = '#40d0ff'; }
     else { c.t = null; c.obj = null; c.light = null; } });
+}
+
+// ================= DESEMPENHO: efeitos em baixa resolução + cache de objetos parados =================
+// Luz, brilho, névoa, desfoque e vinheta são suaves: calculá-los na resolução do pixel art (≈640×360)
+// e só ampliar no fim custa uma fração do que custava em tela cheia (Full HD / 4K).
+const fxA = mk(10, 10), fxa = fxA.getContext('2d'); // escuridão + tinta + vinheta
+const fxB = mk(10, 10), fxb = fxB.getContext('2d'); // brilhos somados (luzes, raios, névoa, bloom)
+function fxSize(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
+function postFX() {
+  if (V._lq !== V.q) { V._lq = V.q; document.body.classList.toggle('lowq', V.q === 0); }
+  const A = (VIS[S.map.theme] || VIS.village).atmos; const W = cv.width, H = cv.height, t = V.t, w = V.bw, h = V.bh; const L = lightList();
+  fxSize(fxA, w, h); fxSize(fxB, w, h);
+  // camada A: escuridão com "furos" de luz, tinta da cena e vinheta
+  fxa.globalCompositeOperation = 'source-over'; fxa.clearRect(0, 0, w, h); fxa.fillStyle = `rgba(4,2,16,${A.dark})`; fxa.fillRect(0, 0, w, h);
+  fxa.globalCompositeOperation = 'destination-out';
+  for (const [x, y, r] of L) { const fl = r * (0.95 + Math.sin(t / 5 + x) * .05); const gr = fxa.createRadialGradient(x, y, 0, x, y, fl); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); fxa.fillStyle = gr; fxa.fillRect(x - fl, y - fl, fl * 2, fl * 2); }
+  fxa.globalCompositeOperation = 'source-over'; fxa.fillStyle = A.tint; fxa.fillRect(0, 0, w, h);
+  if (!V._vig || V._vig.w !== w || V._vig.h !== h) { const vg = fxa.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .35, w / 2, h / 2, Math.max(w, h) * .75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); V._vig = { w, h, g: vg }; }
+  fxa.fillStyle = V._vig.g; fxa.fillRect(0, 0, w, h);
+  // camada B: brilhos coloridos, raios de luz, névoa e bloom (tudo somado)
+  fxb.globalCompositeOperation = 'source-over'; fxb.clearRect(0, 0, w, h); fxb.globalCompositeOperation = 'lighter';
+  for (const [x, y, r, col] of L) { if (!col) continue; const R = r * (r === 10 ? .5 : .9); const gr = fxb.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, col + (r === 10 ? '30' : '48')); gr.addColorStop(1, col + '00'); fxb.fillStyle = gr; fxb.fillRect(x - R, y - R, R * 2, R * 2); }
+  if (V.q >= 1) {
+    if (A.rays) for (let i = 0; i < 5; i++) { const x0 = w * (.15 + i * .2) + Math.sin(t / 300 + i) * w * .03, rw = w * (.04 + .03 * Math.sin(t / 170 + i * 2) ** 2), sk = w * .35;
+      const gr = fxb.createLinearGradient(0, 0, 0, h * .9); const al = .05 + .03 * Math.sin(t / 90 + i * 1.7); gr.addColorStop(0, `rgba(${A.rays},${al})`); gr.addColorStop(1, `rgba(${A.rays},0)`);
+      fxb.fillStyle = gr; fxb.beginPath(); fxb.moveTo(x0, 0); fxb.lineTo(x0 + rw, 0); fxb.lineTo(x0 + rw - sk, h * .9); fxb.lineTo(x0 - sk - rw, h * .9); fxb.fill(); }
+    if (A.fog) for (let i = 0; i < 4; i++) { const x = ((t * (.15 + i * .05) / V.scale + i * w * .4) % (w * 1.6)) - w * .3, y = h * (.55 + i * .08), r = w * .35;
+      const gr = fxb.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${A.fog},.07)`); gr.addColorStop(1, `rgba(${A.fog},0)`); fxb.fillStyle = gr; fxb.save(); fxb.translate(x, y); fxb.scale(1, .35); fxb.translate(-x, -y); fxb.fillRect(x - r, y - r, r * 2, r * 2); fxb.restore(); }
+    if (FILTER_OK) { const bw = Math.ceil(w / 3), bh = Math.ceil(h / 3); fxSize(bloomC, bw, bh);
+      bloomX.filter = 'brightness(.42) contrast(4.5) saturate(1.2) blur(1.5px)'; bloomX.clearRect(0, 0, bw, bh); bloomX.drawImage(buf, 0, 0, bw, bh); bloomX.filter = 'none';
+      fxb.globalAlpha = V.q >= 2 ? .3 : .22; fxb.drawImage(bloomC, 0, 0, w, h); fxb.globalAlpha = 1; }
+  }
+  fxb.globalCompositeOperation = 'source-over';
+  // qualidade média/baixa: luz aplicada direto no pixel art e uma única ampliação em tela cheia
+  if (V.q <= 1) { bctx.drawImage(fxA, 0, 0); bctx.globalCompositeOperation = 'lighter'; bctx.drawImage(fxB, 0, 0); bctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(buf, 0, 0, W, H); if (V.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${V.flash / 20})`; ctx.fillRect(0, 0, W, H); V.flash--; } return; }
+  // qualidade alta: camadas suaves ampliadas por cima
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(fxA, 0, 0, W, H);
+  if (V.q >= 2 && FILTER_OK) { // profundidade de campo (tilt-shift), já com a escuridão aplicada
+    const dw = Math.ceil(w / 2), dh = Math.ceil(h / 2); fxSize(dofC, dw, dh);
+    dofX.globalCompositeOperation = 'source-over'; dofX.filter = 'blur(1.2px)'; dofX.clearRect(0, 0, dw, dh); dofX.drawImage(buf, 0, 0, dw, dh); dofX.filter = 'none'; dofX.drawImage(fxA, 0, 0, dw, dh);
+    dofX.globalCompositeOperation = 'destination-in'; const top = (V.topUI * V.uiZ * V.dpr / V.scale) / 2, bot = dh - (V.botUI * V.uiZ * V.dpr / V.scale) / 2;
+    const gr = dofX.createLinearGradient(0, 0, 0, dh); const a = clamp(top / dh, 0, .4), b = clamp(bot / dh, .6, 1);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(a + .05, 'rgba(0,0,0,.6)'); gr.addColorStop(a + .22, 'rgba(0,0,0,0)'); gr.addColorStop(b - .2, 'rgba(0,0,0,0)'); gr.addColorStop(b, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
+    dofX.fillStyle = gr; dofX.fillRect(0, 0, dw, dh); ctx.drawImage(dofC, 0, 0, W, H);
+  }
+  ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(fxB, 0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
+  if (V.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${V.flash / 20})`; ctx.fillRect(0, 0, W, H); V.flash--; }
+  ctx.imageSmoothingEnabled = false;
+}
+// lista de luzes fixas do mapa calculada uma vez (antes: o mapa inteiro era percorrido a cada quadro)
+function lightList() {
+  const th = S.map.theme; const L = []; const map = S.map;
+  const lk = map.g.length + ':' + V.rot + ':' + Math.floor(V.t / 45); if (map._lightKey !== lk || map._lightDirty) { map._lightKey = lk; map._lightDirty = 0; map._lights = map.g.flat().filter(c => c.light && c.t && !(c.wall && !wallSide(c).face)); }
+  for (const c of map._lights) { if (!c.light) continue; const [sx, sy0] = toScreen(c.x, c.y, c.h); const sy = c.wall ? sy0 + Math.max(4, c.h * 8 + 6 - 34) + 22 : sy0; if (sx > -60 && sx < V.bw + 60 && sy > -60 && sy < V.bh + 80) L.push([sx, sy - 14, c.obj ? 52 : 34, hex6(c.light)]); }
+  S.units.forEach(u => { if (u.visible && u.alpha > 0 && !u.ko && u._sx != null) L.push([u._sx, u._sy - 10, th === 'crypt' ? 34 : 26, u.aura ? hex6(u.aura) : null]); });
+  let n = 0; for (const p of P) { if (p.glow && p.s > 1.5 && n++ < 60) L.push([p.x, p.y, 10, hex6(p.c)]); }
+  return L.filter(l => isFinite(l[0]) && isFinite(l[1]));
+}
+// objetos que não se mexem viram imagens prontas (desenhadas uma vez só)
+const OBJ_CACHE = new Map();
+const STATIC_OBJ = new Set(['tree', 'pine', 'deadtree', 'rock', 'house', 'crate', 'pillar', 'ruin', 'snowpine', 'statue', 'grave', 'barrel', 'tent', 'stall', 'palm', 'spike', 'bush', 'log', 'stump', 'hay', 'well', 'sarcophagus', 'urn', 'throne', 'bookshelf', 'rack', 'chest', 'bonepile', 'chair']);
+function drawObjFast(g, c, sx, sy, k) {
+  if (!STATIC_OBJ.has(c.obj)) return false;
+  const vr = Math.floor(hash(c.x, c.y, 77) * 3); const key = c.obj + '|' + vr + '|' + k; let im = OBJ_CACHE.get(key);
+  if (!im) { im = mk(112, 128); const cg = im.getContext('2d'); cg.imageSmoothingEnabled = false; cg.translate(56, 112); if (k !== 1) cg.scale(k, k);
+    const fake = { obj: c.obj, x: vr * 7 + 1, y: vr * 3 + 2, deco: null, light: null }; drawObj(cg, fake, 0, 0); OBJ_CACHE.set(key, im); }
+  g.drawImage(im, Math.round(sx) - 56, Math.round(sy) - 112); return true;
 }
 
 // ================= SPRITES 16-BIT (LPC) — composição em tempo real =================

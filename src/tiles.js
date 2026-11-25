@@ -67,6 +67,7 @@ function faceTex(t, side, d) {
         else { let k = (hash(Math.floor((i + off) / 8), course, sd) - .5) * .22 + (fbm(i, y, sd) - .5) * .1; if (rr === 0) k += .12; if (cat === 'plate' && (i === 2 || i === 13) && rr === 2) k = .45; col = lit(base, k); }
       } else if (cat === 'plank') { const course = Math.floor(r / 3); col = r % 3 === 2 ? lit(base, -.35) : lit(base, (hash(course, i >> 3, sd) - .5) * .2 + Math.sin(i * 1.7 + course) * .04); }
       else { let k = (fbm(i * 1.3, y, sd) - .5) * .45; if (Math.abs(Math.sin(i * .6 + y * .35 + fbm(i, y, sd + 2) * 5)) < .08) k -= .3; col = lit(base, k); }
+      { const sh = 1 - Math.min(1, r / (d + 8)) * .3; col = [col[0] * sh, col[1] * sh, col[2] * sh]; }
       const o = (y * 16 + i) * 4; id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = 255; } }
   g.putImageData(id, 0, 0); TEX.set(key, c); return c;
 }
@@ -91,8 +92,6 @@ function drawTile(g, c, sx, sy) {
     const [rx, ry] = rotP(c.x, c.y);
     [[-1, 0, 0], [0, -1, 1]].forEach(([dx, dy, side]) => { const [wx, wy] = unrotP(rx + dx, ry + dy); const n = tile(S.map, wx, wy); if (!n || !n.t || n.stubNow || n.h <= c.h) return; const k = Math.min(2, n.h - c.h);
       g.fillStyle = `rgba(0,0,0,${.16 * k})`; g.beginPath(); if (side === 0) { g.moveTo(sx - 16, sy); g.lineTo(sx, sy - 8); g.lineTo(sx, sy - 3); g.lineTo(sx - 10, sy + 2); } else { g.moveTo(sx, sy - 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 10, sy + 2); g.lineTo(sx, sy - 3); } g.fill(); });
-    const lg = g.createLinearGradient(0, sy, 0, sy + 8 + d); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = lg;
-    g.beginPath(); g.moveTo(sx - 16, sy); g.lineTo(sx, sy + 8); g.lineTo(sx + 16, sy); g.lineTo(sx + 16, sy + d); g.lineTo(sx, sy + 8 + d); g.lineTo(sx - 16, sy + d); g.fill();
     g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(sx - 15, sy - 1, 15, 1);
     edgeTufts(g, c, sx, sy);
     if (isGrassy(c.t) && !c.obj) { g.fillStyle = tt.det; for (let i = 0; i < 4; i++) { const bx = sx + Math.round((hash(c.x, c.y, i + 20) - .5) * 20), by = sy + Math.round((hash(c.y, c.x, i + 30) - .5) * 7); const sw = Math.round(Math.sin(t / 25 + c.x * .8 + c.y * .5 + i) * 1.2); g.fillRect(bx, by - 2, 1, 2); g.fillRect(bx + sw, by - 4, 1, 2); } }
